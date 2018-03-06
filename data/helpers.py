@@ -11,6 +11,22 @@ def bind(f):
             return f(x)
     return wrapper
 
+def with_connection(mod, db_filename, f):
+    def with_connection_(*args, **kwargs):
+        # or use a pool, or a factory function...
+        cnn = mod.connect(db_filename)
+        try:
+            rv = f(cnn, *args, **kwargs)
+        except Exception as e:
+            cnn.rollback()
+            raise
+        else:
+            cnn.commit() # or maybe not
+        finally:
+            cnn.close()
+        return rv
+    return with_connection_
+
 def compose_two(func1, func2):
      def composition(*args, **kwargs):
         return func1(func2(*args, **kwargs))
