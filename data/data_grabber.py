@@ -73,16 +73,19 @@ def unroll(job_d):
     event_d =job_d['event']
     del job_d['event']
     return helpers.merge_dicts(job_d, event_d)
+def get_stations():
+    return pd.read_csv('stations.csv')['Station'].tolist()
 def create_jobs_queue(limit = 5):
     """create a generator of job parameter dicts like:
     [{'starttime':s,'endtime':e,'network':n,
                'station':s, 'channel':c},,,"""
     n = {'network': ['NL']}
-    stations = {'station':['VKB']}
+    stations = {'station':get_stations()}
     channels = {'channel':['BHZ']}
-    events = helpers.lstdcts2dctlsts(helpers.first_n(parse_events(), limit))
+    events = helpers.lstdcts2dctlsts(parse_events())
     all_combs = helpers.many_dict_product(n, stations, channels, events)
-    return map(unroll,all_combs)
+    first_n = helpers.first_n(all_combs,limit)
+    return map(unroll,first_n)
 
 def serial_worker(jobs_queue):
     """given an iterator of event dictionaries 
@@ -107,9 +110,9 @@ def write_to_db(cnn, res_chunk):
     insert_q = """INSERT INTO groundmotion(eventid, stationid, channel, timeseries,
                     startime, endtime, exactstart, exactend)
                     VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
-    cnn.executemany(insert_q, map(res_prep,res_chunk))
+    cnn.executemany(insert_q, (res_prep(r) for r in res_chunk if r))
 if __name__ == '__main__':
-    q = create_jobs_queue(limit = 10)
+    q = create_jobs_queue(limit = 200)
     res = parallel_worker(q)
     for r in helpers.grouper(4,res):
         write_to_db(r)
