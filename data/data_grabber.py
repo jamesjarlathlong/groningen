@@ -1,7 +1,6 @@
 import obspy
 import requests
 import io
-import matplotlib
 import pandas as pd
 import helpers
 import functools
