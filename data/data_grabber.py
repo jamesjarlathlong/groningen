@@ -9,7 +9,8 @@ import datetime
 import copy
 import sys
 import sqlite3
-sqlconn = functools.partial(helpers.with_connection, sqlite3, 'groningendata.db')
+import query_helpers
+sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
 def get_event_response(network=None, station=None, channel=None,
                        eventid=None,starttime=None, endtime=None):
     """get an event mseed file from the knmi database given
@@ -75,16 +76,16 @@ def unroll(job_d):
     return helpers.merge_dicts(job_d, event_d)
 def get_stations():
     return pd.read_csv('stations.csv')['Station'].tolist()
-def create_jobs_queue(limit = 5):
+def create_jobs_queue(limit = None):
     """create a generator of job parameter dicts like:
     [{'starttime':s,'endtime':e,'network':n,
                'station':s, 'channel':c},,,"""
     n = {'network': ['NL']}
     stations = {'station':get_stations()}
-    channels = {'channel':['BHZ']}
+    channels = {'channel':['HHZ']}
     events = helpers.lstdcts2dctlsts(parse_events())
     all_combs = helpers.many_dict_product(n, stations, channels, events)
-    first_n = helpers.first_n(all_combs,limit)
+    first_n = helpers.first_n(all_combs,limit) if limit else all_combs
     return map(unroll,first_n)
 
 def serial_worker(jobs_queue):
@@ -101,7 +102,7 @@ def parallel_worker(jobs_queue):
     return res
 def res_prep(res):
     tpl= (res['_id'], res['station'],res['channel'], 
-            helpers.arr_to_blob(res['timeseries']), 
+            query_helpers.arr_to_blob(res['timeseries']), 
             res['starttime'],res['endtime'],res['exactstart'],res['exactend'])
     print('tpl: ', tpl)
     return tpl
@@ -112,7 +113,7 @@ def write_to_db(cnn, res_chunk):
                     VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
     cnn.executemany(insert_q, (res_prep(r) for r in res_chunk if r))
 if __name__ == '__main__':
-    q = create_jobs_queue(limit = 200)
+    q = create_jobs_queue(limit = 2000)
     res = parallel_worker(q)
     for r in helpers.grouper(4,res):
         write_to_db(r)
