@@ -25,11 +25,10 @@ def get_earthquake_lazy(cnn):
 			INNER JOIN stations s
 			on g.stationid = s.station
 			GROUP BY g.eventid"""
-	print('execing')
 	cur = cnn.execute(query)
-	print('execed')
 	#res = helpers.parallel_map(format_one_earthquake, cur, chunksize=15)
 	res = map(format_one_earthquake, cur)
 	return res
+@sqlconn
 def get_earthquake_eager(cnn):
 	return list(get_earthquake_lazy(cnn))
