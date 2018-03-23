@@ -1,7 +1,6 @@
 import obspy
 import requests
 import io
-import matplotlib
 import pandas as pd
 import helpers
 import functools
@@ -45,7 +44,6 @@ def stream_trimmer(untrimmed_stream,start_time,end_time):
     trace_in.trim(start_dt,end_dt)
     exactstart=str(obspy.core.utcdatetime.UTCDateTime(trace_in.stats.starttime))
     exactend=str(obspy.core.utcdatetime.UTCDateTime(trace_in.stats.endtime))
-    print('trace in: ', trace_in.data)
     return trace_in.data, exactstart, exactend
 @helpers.bind
 def stream_formatter(streamified):
@@ -64,7 +62,7 @@ def add_to_timestring(nseconds, isostring):
     delta = datetime.timedelta(seconds=nseconds)
     futuretime = currenttime+delta
     return datetime.datetime.strftime(futuretime,"%Y-%m-%dT%H:%M:%S.%f")
-def parse_events(f='events.csv', incrementer = functools.partial(add_to_timestring,300)):
+def parse_events(f='events.csv', incrementer = functools.partial(add_to_timestring,120)):
     df = pd.read_csv(f, delimiter = ',',encoding='utf-8')[['EventID','Time']]
     return ({'event':{'eventid':eventid,'starttime':time, 'endtime':incrementer(time)}} for index,eventid,time in df.itertuples())
 
@@ -104,7 +102,6 @@ def res_prep(res):
     tpl= (res['_id'], res['station'],res['channel'], 
             query_helpers.arr_to_blob(res['timeseries']), 
             res['starttime'],res['endtime'],res['exactstart'],res['exactend'])
-    print('tpl: ', tpl)
     return tpl
 @sqlconn
 def write_to_db(cnn, res_chunk):
@@ -113,7 +110,7 @@ def write_to_db(cnn, res_chunk):
                     VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
     cnn.executemany(insert_q, (res_prep(r) for r in res_chunk if r))
 if __name__ == '__main__':
-    q = create_jobs_queue(limit = 2000)
+    q = create_jobs_queue(limit = 1500)
     res = parallel_worker(q)
-    for r in helpers.grouper(4,res):
+    for r in helpers.grouper(200,res):
         write_to_db(r)
