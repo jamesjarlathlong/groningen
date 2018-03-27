@@ -110,7 +110,7 @@ def write_to_db(cnn, res_chunk):
                     VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
     cnn.executemany(insert_q, (res_prep(r) for r in res_chunk if r))
 if __name__ == '__main__':
-    q = create_jobs_queue(limit = 1500)
+    q = create_jobs_queue(limit = None)
     res = parallel_worker(q)
     for r in helpers.grouper(200,res):
         write_to_db(r)
