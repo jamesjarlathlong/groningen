@@ -107,4 +107,4 @@ venv.bak/
 
 # data file
 *.db
-
+*.csv
