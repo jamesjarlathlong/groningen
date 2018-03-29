@@ -221,7 +221,8 @@ def write_earthquake_egs_tofile(oneevent):
 @sqlconn
 def stream_to_file(cnn):
     quake_stream = queryer.get_earthquake_lazy(cnn)
-    for quake_record in quake_stream:
+    for idx, quake_record in enumerate(quake_stream):
+        print('processing quake num {}'.format(idx))
         write_earthquake_egs_tofile(quake_record)
     return
 if __name__=='__main__':
