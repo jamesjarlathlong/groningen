@@ -1,10 +1,10 @@
-import query_helpers
+from . import query_helpers
 import sqlite3
 import functools
 import pandas as pd
 import numpy as np
 import json
-dbname = 'groningendata.db'
+dbname = 'data/groningendata.db'
 sqlconn = functools.partial(query_helpers.with_connection, sqlite3,dbname)
 
 @sqlconn
