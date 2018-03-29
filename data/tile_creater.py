@@ -1,7 +1,9 @@
 import numpy as np
-from data import helpers
+from data import helpers, queryer
+import sqlite3
 import functools
 import itertools
+import matplotlib
 def modify_short_timeseries(quake_records):
     maxlen = max([len(quake['ts']) for quake in quake_records ])
     onlylongquakes = [quake for quake in quake_records
@@ -168,15 +170,27 @@ def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     data_to_tiles = helpers.pipe(metriciser, manytiler)
     return data_to_tiles(raw_timeseries)
 
-def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen,
-                                     frames_per_eg, oneevent):
+def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     trainingdata = event_to_tiles(topleft,sizex, sizey, numx,numy,
                                   slicelen, oneevent)
     label = (oneevent['eventlat'],oneevent['eventlon']
             ,oneevent['eventdepth'], oneevent['magnitude']
             ,oneevent['eventid'], topleft, sizex, sizey, numx,numy)
     return label, list(trainingdata)
-
+def tile_to_file(label, tile, seq):
+    eventid = label[4]
+    name = '/tiles/eventid/{}'.format(str(seq))
+    np.savetxt(name, tile)
+    with open('tiles/metadata','a') as f:
+        f.write(json.dumps({eventid:label}))
+        f.write('\n')
+def earthquake_to_egs(oneevent):
+    topleft = (53.5, 6.4)
+    sizex = 0.8
+    sizey = 0.4
+    numx= 180
+    numy = 90
+    slicelen=100
 def gps_distance(latlon1, latlon2):
     from math import sin, cos, sqrt, atan2, radians
     # approximate radius of earth in km
@@ -193,6 +207,9 @@ def gps_distance(latlon1, latlon2):
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     distance = R * c
     return distance
+
+if __name__=='__main__':
+
 
 
 
