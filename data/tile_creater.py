@@ -195,9 +195,9 @@ def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, 
     return label, list(trainingdata)
 def tile_to_file(label, tile, seq):
     eventid = label[4]
-    name = './data/tiles/{}'.format(eventid+'_'+str(seq))
+    name = './data/tiles/{}.txt'.format(eventid+'_'+str(seq))
     np.savetxt(name, tile)
-    with open('./data/tiles/metadata','a') as f:
+    with open('./data/tiles/metadata.txt','a') as f:
         f.write(json.dumps({eventid:label}))
         f.write('\n')
 def write_earthquake_egs_tofile(oneevent):
