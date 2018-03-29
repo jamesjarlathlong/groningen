@@ -3,6 +3,7 @@ import itertools
 import collections
 import asyncio
 import concurrent
+import time
 def bind(f):
     def wrapper(x):
         if x is None:
@@ -57,6 +58,20 @@ async def parallelmain(curriedjobs, workers=20):
         futures = [loop.run_in_executor(executor, f) for f in curriedjobs]
         all_res = [response for response in await asyncio.gather(*futures)]
         return all_res
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('%r  %2.2f ms' % \
+                  (method.__name__, (te - ts) * 1000))
+        return result
+
+    return timed
 def run_parallel(curriedjobs, workers=20):
     loop = asyncio.get_event_loop()
     all_res = loop.run_until_complete(parallelmain(curriedjobs, workers))

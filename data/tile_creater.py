@@ -1,13 +1,31 @@
 import numpy as np
-from data import helpers
+from . import helpers, queryer, query_helpers
+import sqlite3
 import functools
 import itertools
+import json
+sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'data/groningendata.db')
 def modify_short_timeseries(quake_records):
     maxlen = max([len(quake['ts']) for quake in quake_records ])
     onlylongquakes = [quake for quake in quake_records
                       if len(quake['ts']) == maxlen]
     return onlylongquakes
-
+def gps_distance(latlon1, latlon2):
+    from math import sin, cos, sqrt, atan2, radians
+    # approximate radius of earth in km
+    R = 6373.0
+    lat1, lon1 = latlon1
+    lat2, lon2 = latlon2
+    lat1d = radians(lat1)
+    lon1d = radians(lon1)
+    lat2d = radians(lat2)
+    lon2d = radians(lon2)
+    dlon = lon2d - lon1d
+    dlat = lat2d - lat1d
+    a = sin(dlat / 2)**2 + cos(lat1d) * cos(lat2d) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    distance = R * c
+    return distance
 def remove_outside_bounds(lats, lons, eles, lat_bound, lon_bound):
     """Args:
     lats: a float array of station latitudes
@@ -168,31 +186,47 @@ def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     data_to_tiles = helpers.pipe(metriciser, manytiler)
     return data_to_tiles(raw_timeseries)
 
-def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen,
-                                     frames_per_eg, oneevent):
+def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     trainingdata = event_to_tiles(topleft,sizex, sizey, numx,numy,
                                   slicelen, oneevent)
     label = (oneevent['eventlat'],oneevent['eventlon']
             ,oneevent['eventdepth'], oneevent['magnitude']
             ,oneevent['eventid'], topleft, sizex, sizey, numx,numy)
     return label, list(trainingdata)
+def tile_to_file(label, tile, seq):
+    eventid = label[4]
+    name = './data/tiles/{}.txt'.format(eventid+'_'+str(seq))
+    np.savetxt(name, tile)
+    try:
+        with open('./data/tiles/metadata.json','r+') as f:
+            already = json.load(f)
+    except FileNotFoundError as e:
+        already = {}
+    if eventid not in already:
+        print('already: ', already, eventid)
+        already[eventid] = label
+    with open('./data/tiles/metadata.json', "w+") as f:
+        json.dump(already, f)
+def write_earthquake_egs_tofile(oneevent):
+    topleft = (53.5, 6.4)
+    sizex = 1
+    sizey = 0.5
+    numx= 180
+    numy = 90
+    slicelen=100
+    label, tiles = earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent)
+    for idx, tile in enumerate(tiles):
+        tile_to_file(label, tile, idx)
 
-def gps_distance(latlon1, latlon2):
-    from math import sin, cos, sqrt, atan2, radians
-    # approximate radius of earth in km
-    R = 6373.0
-    lat1, lon1 = latlon1
-    lat2, lon2 = latlon2
-    lat1d = radians(lat1)
-    lon1d = radians(lon1)
-    lat2d = radians(lat2)
-    lon2d = radians(lon2)
-    dlon = lon2d - lon1d
-    dlat = lat2d - lat1d
-    a = sin(dlat / 2)**2 + cos(lat1d) * cos(lat2d) * sin(dlon / 2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    distance = R * c
-    return distance
+@sqlconn
+def stream_to_file(cnn):
+    quake_stream = queryer.get_earthquake_lazy(cnn)
+    for idx, quake_record in enumerate(quake_stream):
+        print('processing quake num {}'.format(idx))
+        write_earthquake_egs_tofile(quake_record)
+    return
+if __name__=='__main__':
+    stream_to_file()
 
 
 
