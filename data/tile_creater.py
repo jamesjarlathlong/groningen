@@ -197,9 +197,16 @@ def tile_to_file(label, tile, seq):
     eventid = label[4]
     name = './data/tiles/{}.txt'.format(eventid+'_'+str(seq))
     np.savetxt(name, tile)
-    with open('./data/tiles/metadata.txt','a') as f:
-        f.write(json.dumps({eventid:label}))
-        f.write('\n')
+    try:
+        with open('./data/tiles/metadata.json','r+') as f:
+            already = json.load(f)
+    except FileNotFoundError as e:
+        already = {}
+    if eventid not in already:
+        print('already: ', already, eventid)
+        already[eventid] = label
+    with open('./data/tiles/metadata.json', "w+") as f:
+        json.dump(already, f)
 def write_earthquake_egs_tofile(oneevent):
     topleft = (53.5, 6.4)
     sizex = 1
