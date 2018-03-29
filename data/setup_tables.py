@@ -12,14 +12,24 @@ def setup_events(cnn):
 	url = 'http://rdsa.knmi.nl/fdsnws/event/1/query?format=text&nodata=404'
 	df = pd.read_csv(url,sep='|')
 	df.columns=df.columns.str.replace('#','')
+	df.columns = df.columns.str.replace('/','')
 	query_helpers.df_to_sqlite(cnn,df,'events')
 	df.to_csv('events.csv', index=False)
 	cnn.execute('''CREATE INDEX eventsidx ON events (eventid)''')
+def correct_niveau_elevations(df):
+	df.loc[df['SiteName'].str.contains("niveau 0"), 'Elevation'] = 0
+	df.loc[df['SiteName'].str.contains("niveau 1"), 'Elevation'] = -50
+	df.loc[df['SiteName'].str.contains("niveau 2"), 'Elevation'] = -100
+	df.loc[df['SiteName'].str.contains("niveau 3"), 'Elevation'] = -150
+	df.loc[df['SiteName'].str.contains("niveau 4"), 'Elevation'] = -200
+	df.loc[df['SiteName'].str.contains("niveau 5"), 'Elevation'] = -250
+	return df
 @sqlconn
 def setup_stations(cnn):
 	url = 'http://rdsa.knmi.nl/fdsnws/station/1/query?format=text&nodata=404'
 	df = pd.read_csv(url,sep='|')
 	df.columns=df.columns.str.replace('#','')
+	df = correct_niveau_elevations(df)
 	query_helpers.df_to_sqlite(cnn,df,'stations')
 	df.to_csv('stations.csv', index=False)
 	cnn.execute('''CREATE INDEX stationssidx ON stations (station)''')

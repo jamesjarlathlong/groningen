@@ -1,13 +1,14 @@
 import numpy as np
 import helpers
 import functools
+import itertools
 def modify_short_timeseries(quake_records):
     maxlen = max([len(quake['ts']) for quake in quake_records ])
     onlylongquakes = [quake for quake in quake_records
                       if len(quake['ts']) == maxlen]
     return onlylongquakes
 
-def remove_outside_bounds(lats, lons, lat_bound, lon_bound):
+def remove_outside_bounds(lats, lons, eles, lat_bound, lon_bound):
     """Args:
     lats: a float array of station latitudes
     lons: a float array of station longitudes
@@ -18,38 +19,56 @@ def remove_outside_bounds(lats, lons, lat_bound, lon_bound):
     modified_lats: lats with any out of bounds removed
     modified_lons: lons with any out of bounds removed
     """
-    inside_bounds = [(lat,lon) for lat,lon in zip(lats, lons)
+    inside_bounds = [(lat,lon, ele) for lat,lon, ele in zip(lats, lons,eles)
                      if lat_bound(lat) and lon_bound(lon)]
-    return [lat for lat,lon in inside_bounds], [lon for lat,lon in inside_bounds]
+    return helpers.list_of_tuples_to_nlists(inside_bounds)
 
 def filter_coords(candidatelist, keeper_coords):
     stations_matching_akeeper = [i for i in candidatelist
                     if any(coords_match(i, keeper_coords))]
     return stations_matching_akeeper
-def coords_match(record, latlons):
-    def checker(record, latlon): 
-        latmatches = float(record['stationlat'])==latlon[0]
-        lonmatches = float(record['stationlon'])==latlon[1]
-        return latmatches and lonmatches
-    return [checker(record, i) for i in latlons]
-
+def coords_match(record, latloneles):
+    def checker(record, latlonele): 
+        latmatches = float(record['stationlat'])==latlonele[0]
+        lonmatches = float(record['stationlon'])==latlonele[1]
+        elematches = float(record['stationele'])==latlonele[2]
+        return latmatches and lonmatches and elematches
+    return [checker(record, i) for i in latloneles]
+def remove_overlapping(lat, lon, ele):
+    latlonele = zip(lat, lon, ele)
+    getlatlon = lambda xyz: (xyz[0], xyz[1])
+    inorder = sorted(latlonele, key = getlatlon)
+    grouped = itertools.groupby(inorder, key= getlatlon)
+    takehighest = lambda lst: max(lst, key = lambda x:x[2])
+    justhighest = (takehighest(g) for k,g in grouped)
+    return helpers.list_of_tuples_to_nlists(justhighest)
+def remove_outlier(lat, lon, ele):
+    notoutlier = [(lat, lon,ele) for lat,lon, ele
+                 in zip(lat, lon, ele) if lat!=53.2135]
+    return helpers.list_of_tuples_to_nlists(notoutlier)
 def filter_outside_box(topleft, sizex, sizey, quake_data):
     all_lat = np.asfarray([station['stationlat'] for station in quake_data],float)
     all_lon = np.asfarray([station['stationlon'] for station in quake_data],float)
+    all_ele = np.asfarray([station['stationele'] for station in quake_data],float)
     topright = (topleft[0]+sizex, topleft[1])
     bottomleft = (topleft[0], topleft[1]+sizey)
     inside_lat = lambda lat: lat < topleft[0] and lat > bottomleft[0]
     inside_lon = lambda lon: lon > topleft[1] and lon <topright[0]
-    modified_lat, modified_lon =  remove_outside_bounds(
-        all_lat, all_lon,
-        lambda lat: lat>53.0,
-        lambda lon: lon>5.8)
-    filtered_data = filter_coords(quake_data, list(zip(modified_lat, modified_lon)))
+
+    modified_lat, modified_lon, modified_ele =  remove_outside_bounds(all_lat,
+        all_lon, all_ele, lambda lat: lat>53.0,lambda lon: lon>5.8)
+    uqified_lat, uqified_lon, uqified_ele = remove_overlapping(modified_lat,
+        modified_lon, modified_ele)
+    manual_lat, manual_lon, manual_ele = remove_outlier(uqified_lat,
+        uqified_lon, uqified_ele)
+    filtered_data = filter_coords(quake_data,
+        list(zip(manual_lat,manual_lon, manual_ele)))
     return filtered_data
 def extract_raw_timeseries(quake_records):
     return np.vstack([quake['ts'] for quake in quake_records])
 def extract_station_deets(quake_records):
-    stationdeets = np.asarray([[i.get('stationlat'),i.get('stationlon')]
+    stationdeets = np.asarray([[i.get('stationlat'),
+                                i.get('stationlon')]
                                 for i in quake_records], dtype=np.float64)
     return stationdeets
 def tile_creater(manytimeseries,slicelen =1, metric = np.max):
@@ -75,6 +94,7 @@ def singletile(topleft, plen_x, plen_y, stationdeets, metricslice):
     corresponding row in metricslice:
     Return -> A 2d numpy array tile"""
     latlon_to_idxs = latlon_to_idxer(topleft, plen_x, plen_y)
+    biggest = np.argmax(metricslice)
     sparse_rep = [(latlon_to_idxs(*stationdeets[i]), metricval) 
                    for i, metricval in enumerate(metricslice)]
     return sparse_rep
@@ -86,21 +106,25 @@ def latlon_to_idxer(topleft, plen_x,plen_y):
 def sparse_to_full(num_px, num_py, sparse_representation):
     empty_matrix = np.zeros((num_py, num_px))#beware the lat, lon: x,y confusion
     latlons = [latlon for latlon, val in sparse_representation]
-    anydups = set([x for x in latlons if latlons.count(x) > 1])
-    print('anydups: ?', anydups)
     for (idxlat,idxlon), metricval in sparse_representation:
         empty_matrix[idxlon, idxlat] = metricval #beware the lat, lon: x,y confusion
     return empty_matrix
+def zeromean(a, axis=1):
+    avg = np.mean(a, axis =axis)
+    res = (a.transpose() - avg).transpose()
+    return res
 def absmaxND(a, axis=None):
     amax = a.max(axis)
     amin = a.min(axis)
     return np.abs(np.where(-amin > amax, amin, amax))
+def zeromeanpeak(a, axis=None):
+    return np.max(zeromean(a, axis=1), axis=1)
 def slicecalcer(slicelen, metric, dataarray):
     n,t=np.shape(dataarray)
     slice_steps = np.arange(0,t+1,slicelen)
     slices = [dataarray[:,i[0]:i[1]] for i 
               in zip(slice_steps, slice_steps[1::])]
-    metrics = np.asarray([metric(arr, axis=1) for arr in slices]).T    
+    metrics = np.asarray([metric(arr, axis=1) for arr in slices]) 
     return metrics
 #probably best to create another function which returns grid values which we 
 #will use in tile_creater
@@ -129,20 +153,29 @@ def discretiser(plen_x, plen_y, xy):
     return n,m
 def get_pixel_lens(numx, numy, sizex, sizey):
     return sizex/numx, sizey/numy
-def transform_event(topleft,sizex, sizey, numx,numy, oneevent):
+def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     plenx, pleny = get_pixel_lens(numx, numy, sizex,sizey)
     no_shorts = modify_short_timeseries(oneevent['data'])
     no_outliers = filter_outside_box(topleft, sizex, sizey, no_shorts)
     raw_timeseries = extract_raw_timeseries(no_outliers)
     stationdeets = extract_station_deets(no_outliers)
     #build the pipeline
-    metriciser = functools.partial(slicecalcer, 200, absmaxND)
+    metriciser = functools.partial(slicecalcer, slicelen, zeromeanpeak)
     onetiler = functools.partial(singletile, topleft, plenx, pleny, stationdeets)
     matrixifier = functools.partial(sparse_to_full, numx, numy)
     metricslice_to_tile = helpers.pipe(onetiler, matrixifier)
     manytiler = functools.partial(map, metricslice_to_tile)
     data_to_tiles = helpers.pipe(metriciser, manytiler)
     return data_to_tiles(raw_timeseries)
+
+def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen,
+                                     frames_per_eg, oneevent):
+    trainingdata = event_to_tiles(topleft,sizex, sizey, numx,numy,
+                                  slicelen, oneevent)
+    label = (oneevent['eventlat'],oneevent['eventlon']
+            ,oneevent['eventdepth'], oneevent['magnitude']
+            ,oneevent['eventid'])
+    return label, list(trainingdata)
 
 def gps_distance(latlon1, latlon2):
     from math import sin, cos, sqrt, atan2, radians
