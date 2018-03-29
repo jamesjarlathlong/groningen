@@ -9,7 +9,7 @@ import copy
 import sys
 import sqlite3
 from . import query_helpers, helpers
-sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
+sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'data/groningendata.db')
 def get_event_response(network=None, station=None, channel=None,
                        eventid=None,starttime=None, endtime=None):
     """get an event mseed file from the knmi database given
