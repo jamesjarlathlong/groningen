@@ -2,13 +2,12 @@ import obspy
 import requests
 import io
 import pandas as pd
-import helpers
 import functools
 import datetime
 import copy
 import sys
 import sqlite3
-from data import query_helpers
+from . import query_helpers, helpers
 sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
 def get_event_response(network=None, station=None, channel=None,
                        eventid=None,starttime=None, endtime=None):

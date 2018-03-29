@@ -1,8 +1,8 @@
 import pandas as pd
-from data import query_helpers, helpers
+from . import query_helpers, helpers
 import functools
 import sqlite3
-sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
+sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'data/groningendata.db')
 def format_one_earthquake(lst):
 	eventid, eventlat,eventlon, mag,depthkm, concatted = lst
 	return {'eventid':eventid,'eventlat':eventlat
