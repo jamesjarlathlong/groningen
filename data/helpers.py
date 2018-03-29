@@ -32,6 +32,10 @@ def dict_product(d):
 def merge_dicts(*dcts):
     return dict(collections.ChainMap({}, *dcts))
 many_dict_product = pipe(merge_dicts, dict_product)
+
+def list_of_tuples_to_nlists(lst):
+    return list(zip(*lst))
+    
 def lstdcts2dctlsts(lst):
     """e.g. [{'A':2},{'A':3}] -> {'A':[2,3]}"""
     def accumer(accum, el):
