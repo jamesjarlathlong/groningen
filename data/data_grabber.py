@@ -4,6 +4,7 @@ import io
 import pandas as pd
 import helpers
 import functools
+import itertools
 import datetime
 import copy
 import sys
@@ -18,6 +19,7 @@ def get_event_response(network=None, station=None, channel=None,
     payload = {'starttime':starttime,'endtime':endtime,'network':network,
                'station':station, 'channel':channel,'nodata':404}
     r = requests.get(baseurl,params=payload)
+    print('http response received')
     if r.status_code ==200:
         return {'data':r.content,'starttime':starttime,'endtime':endtime
                 ,'channel':channel,'station':station, '_id':eventid}
@@ -93,10 +95,12 @@ def serial_worker(jobs_queue):
     get the http response for that set of parameteres,,
     extract the mseed stream and format it."""
     return (get_and_format(**job) for job in jobs_queue)
+
+@helpers.timeit
 def parallel_worker(jobs_queue):
     """multithreaded concurrent version of serial worker"""
     jobs = (functools.partial(get_and_format, **job) for job in jobs_queue)
-    res = helpers.run_chunks_parallel(jobs, chunksize = 10)
+    res = helpers.run_chunks_parallel(jobs, chunksize = 20, workers = 20)
     return res
 def res_prep(res):
     tpl= (res['_id'], res['station'],res['channel'], 
@@ -109,8 +113,21 @@ def write_to_db(cnn, res_chunk):
                     startime, endtime, exactstart, exactend)
                     VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
     cnn.executemany(insert_q, (res_prep(r) for r in res_chunk if r))
+@sqlconn
+def filter_dones(cnn, q):
+    query = """select startime, endtime, stationid, channel from groundmotion"""
+    alldone = set((i for i in cnn.execute(query)))
+    def tuplify(qitem):
+        keys=['starttime','endtime','station','channel']
+        return tuple((qitem[k] for k in keys)) 
+    return (i for i in q if tuplify(i) not in alldone)
 if __name__ == '__main__':
-    q = create_jobs_queue(limit = None)
-    res = parallel_worker(q)
-    for r in helpers.grouper(200,res):
-        write_to_db(r)
+    allq = create_jobs_queue(limit = None)
+    q = filter_dones(allq)
+    qcopy, jobq = itertools.tee(q)
+    n = sum((1 for _ in qcopy))
+    print('filtered, starting to make requests to remote')
+    for i, qchunk in enumerate(helpers.grouper(20, jobq)):
+        res = parallel_worker(qchunk)
+        print('writing chunk {} of {} to db'.format(i, n/20))
+        write_to_db(res)

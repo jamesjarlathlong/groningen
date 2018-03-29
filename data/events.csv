@@ -1,4 +1,8 @@
 EventID,Time,Latitude,Longitude,Depth/km,Author,Catalog,Contributor,ContributorID,MagType,Magnitude,MagAuthor,EventLocationName
+knmi2018fwwg,2018-03-25T15:54:16.199999,53.404,6.66,3.0,,,KNMI,knmi2018fwwg,MLn,1.4947913030000002,,Uithuizen
+knmi2018fwtl,2018-03-25T14:29:49.299999,53.321,6.759,3.0,,,KNMI,knmi2018fwtl,MLn,0.1165671579,,Garrelsweer
+knmi2018fwmw,2018-03-25T11:09:48.799999,53.288,6.778,3.0,,,KNMI,knmi2018fwmw,MLn,1.640862892,,Garrelsweer
+knmi2018fgqs,2018-03-16T18:56:35.899999,50.879,5.929,5.0,,,KNMI,knmi2018fgqs,MLs,1.529107588,,Voerendaal
 knmi2018euoo,2018-03-10T04:13:05.799999,53.314,6.861,3.0,,,KNMI,knmi2018euoo,MLn,1.315786368,,Appingedam
 knmi2018etrn,2018-03-09T16:35:08.8,53.223,6.949,3.0,,,KNMI,knmi2018etrn,MLn,0.502994544,,Het Waar
 knmi2018ernu,2018-03-08T12:25:34.899999,53.122,6.943,3.0,,,KNMI,knmi2018ernu,MLn,0.7198346921,,Veendam
