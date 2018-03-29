@@ -1,6 +1,5 @@
 import pandas as pd
-import query_helpers
-import helpers
+from data import query_helpers, helpers
 import functools
 import sqlite3
 sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')

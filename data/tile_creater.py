@@ -1,5 +1,5 @@
 import numpy as np
-import helpers
+from data import helpers
 import functools
 import itertools
 def modify_short_timeseries(quake_records):
@@ -174,7 +174,7 @@ def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen,
                                   slicelen, oneevent)
     label = (oneevent['eventlat'],oneevent['eventlon']
             ,oneevent['eventdepth'], oneevent['magnitude']
-            ,oneevent['eventid'])
+            ,oneevent['eventid'], topleft, sizex, sizey, numx,numy)
     return label, list(trainingdata)
 
 def gps_distance(latlon1, latlon2):

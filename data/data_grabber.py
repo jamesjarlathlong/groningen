@@ -8,7 +8,7 @@ import datetime
 import copy
 import sys
 import sqlite3
-import query_helpers
+from data import query_helpers
 sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
 def get_event_response(network=None, station=None, channel=None,
                        eventid=None,starttime=None, endtime=None):
