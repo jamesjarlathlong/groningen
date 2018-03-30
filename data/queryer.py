@@ -34,3 +34,7 @@ def get_earthquake_lazy(cnn):
 @sqlconn
 def get_earthquake_eager(cnn):
 	return list(get_earthquake_lazy(cnn))
+
+@sqlconn
+def get_one_earthquake(cnn):
+	return next(get_earthquake_lazy(cnn))

@@ -72,16 +72,19 @@ def filter_outside_box(topleft, sizex, sizey, quake_data):
     bottomleft = (topleft[0], topleft[1]+sizey)
     inside_lat = lambda lat: lat < topleft[0] and lat > bottomleft[0]
     inside_lon = lambda lon: lon > topleft[1] and lon <topright[0]
-
-    modified_lat, modified_lon, modified_ele =  remove_outside_bounds(all_lat,
-        all_lon, all_ele, lambda lat: lat>53.0,lambda lon: lon>5.8)
-    uqified_lat, uqified_lon, uqified_ele = remove_overlapping(modified_lat,
-        modified_lon, modified_ele)
-    manual_lat, manual_lon, manual_ele = remove_outlier(uqified_lat,
-        uqified_lon, uqified_ele)
-    filtered_data = filter_coords(quake_data,
-        list(zip(manual_lat,manual_lon, manual_ele)))
-    return filtered_data
+    try:
+        modified_lat, modified_lon, modified_ele =  remove_outside_bounds(all_lat,
+            all_lon, all_ele, lambda lat: lat>53.0,lambda lon: lon>5.8)
+        uqified_lat, uqified_lon, uqified_ele = remove_overlapping(modified_lat,
+            modified_lon, modified_ele)
+        manual_lat, manual_lon, manual_ele = remove_outlier(uqified_lat,
+            uqified_lon, uqified_ele)
+        filtered_data = filter_coords(quake_data,
+            list(zip(manual_lat,manual_lon, manual_ele)))
+        return filtered_data
+    except ValueError:
+        return []
+    
 def extract_raw_timeseries(quake_records):
     return np.vstack([quake['ts'] for quake in quake_records])
 def extract_station_deets(quake_records):
@@ -175,45 +178,57 @@ def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     plenx, pleny = get_pixel_lens(numx, numy, sizex,sizey)
     no_shorts = modify_short_timeseries(oneevent['data'])
     no_outliers = filter_outside_box(topleft, sizex, sizey, no_shorts)
-    raw_timeseries = extract_raw_timeseries(no_outliers)
-    stationdeets = extract_station_deets(no_outliers)
-    #build the pipeline
-    metriciser = functools.partial(slicecalcer, slicelen, zeromeanpeak)
-    onetiler = functools.partial(singletile, topleft, plenx, pleny, stationdeets)
-    matrixifier = functools.partial(sparse_to_full, numx, numy)
-    metricslice_to_tile = helpers.pipe(onetiler, matrixifier)
-    manytiler = functools.partial(map, metricslice_to_tile)
-    data_to_tiles = helpers.pipe(metriciser, manytiler)
-    return data_to_tiles(raw_timeseries)
-
+    if no_outliers:
+        raw_timeseries = extract_raw_timeseries(no_outliers)
+        stationdeets = extract_station_deets(no_outliers)
+        #build the pipeline
+        metriciser = functools.partial(slicecalcer, slicelen, zeromeanpeak)
+        onetiler = functools.partial(singletile, topleft, plenx, pleny, stationdeets)
+        matrixifier = functools.partial(sparse_to_full, numx, numy)
+        metricslice_to_tile = helpers.pipe(onetiler, matrixifier)
+        manytiler = functools.partial(map, metricslice_to_tile)
+        data_to_tiles = helpers.pipe(metriciser, manytiler)
+        return list(data_to_tiles(raw_timeseries))
+    else:
+        return no_outliers
+def num_nonzeros(arr):
+    return len(nonzeroidxs(arr))
+def nonzeroidxs(arr):
+    return list(zip(*np.nonzero(arr)))
 def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     trainingdata = event_to_tiles(topleft,sizex, sizey, numx,numy,
                                   slicelen, oneevent)
     label = (oneevent['eventlat'],oneevent['eventlon']
             ,oneevent['eventdepth'], oneevent['magnitude']
             ,oneevent['eventid'], topleft, sizex, sizey, numx,numy)
-    return label, list(trainingdata)
+    return label, trainingdata
 def tile_to_file(label, tile, seq):
     eventid = label[4]
-    name = './data/tiles/{}.txt'.format(eventid+'_'+str(seq))
+    name = './data/tiles_small/{}.txt'.format(eventid+'_'+str(seq))
+    nonzeros = num_nonzeros(tile)
+    tmp = list(label)
+    tmp.append(nonzeros)
+    label_nz = tuple(tmp)
     np.savetxt(name, tile)
     try:
-        with open('./data/tiles/metadata.json','r+') as f:
+        with open('./data/tiles_small/metadata.json','r+') as f:
             already = json.load(f)
     except FileNotFoundError as e:
         already = {}
     if eventid not in already:
         print('already: ', already, eventid)
-        already[eventid] = label
-    with open('./data/tiles/metadata.json', "w+") as f:
+        print('nonzeros: ', nonzeros)
+        already[eventid] = label_nz
+    with open('./data/tiles_small/metadata.json', "w+") as f:
         json.dump(already, f)
 def write_earthquake_egs_tofile(oneevent):
     topleft = (53.5, 6.4)
     sizex = 1
     sizey = 0.5
-    numx= 180
-    numy = 90
-    slicelen=100
+    numx= 60
+    numy = 30
+    slicelen=50
+
     label, tiles = earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent)
     for idx, tile in enumerate(tiles):
         tile_to_file(label, tile, idx)
