@@ -9,7 +9,7 @@ import copy
 import sys
 import sqlite3
 from . import query_helpers, helpers
-sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'groningendata.db')
+sqlconn = functools.partial(query_helpers.with_connection, sqlite3, 'data/groningendata.db')
 def get_event_response(network=None, station=None, channel=None,
                        eventid=None,starttime=None, endtime=None):
     """get an event mseed file from the knmi database given
@@ -121,7 +121,7 @@ def filter_dones(cnn, q):
         return tuple((qitem[k] for k in keys)) 
     return (i for i in q if tuplify(i) not in alldone)
 if __name__ == '__main__':
-    allq = create_jobs_queue(limit = None)
+    allq = create_jobs_queue(limit = 1700)
     q = filter_dones(allq)
     qcopy, jobq = itertools.tee(q)
     n = sum((1 for _ in qcopy))
