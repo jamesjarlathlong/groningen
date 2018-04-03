@@ -85,8 +85,8 @@ def filter_outside_box(topleft, sizex, sizey, quake_data):
     except ValueError:
         return []
     
-def extract_raw_timeseries(quake_records):
-    return np.vstack([quake['ts'] for quake in quake_records])
+def extract_raw_timeseries(quake_records, limit=24000):
+    return np.vstack([quake['ts'][0:limit] for quake in quake_records])
 def extract_station_deets(quake_records):
     stationdeets = np.asarray([[i.get('stationlat'),
                                 i.get('stationlon')]
@@ -179,7 +179,7 @@ def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     no_shorts = modify_short_timeseries(oneevent['data'])
     no_outliers = filter_outside_box(topleft, sizex, sizey, no_shorts)
     if no_outliers:
-        raw_timeseries = extract_raw_timeseries(no_outliers)
+        raw_timeseries = extract_raw_timeseries(no_outliers, limit = slicelen*20)
         stationdeets = extract_station_deets(no_outliers)
         #build the pipeline
         metriciser = functools.partial(slicecalcer, slicelen, zeromeanpeak)
