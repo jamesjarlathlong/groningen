@@ -216,7 +216,6 @@ def tile_to_file(label, tile, seq):
     except FileNotFoundError as e:
         already = {}
     if eventid not in already:
-        print('already: ', already, eventid)
         print('nonzeros: ', nonzeros)
         already[eventid] = label_nz
     with open('./data/tiles_small/metadata.json', "w+") as f:
@@ -236,7 +235,9 @@ def write_earthquake_egs_tofile(oneevent):
 @sqlconn
 def stream_to_file(cnn):
     quake_stream = queryer.get_earthquake_lazy(cnn)
-    for idx, quake_record in enumerate(quake_stream):
+    enoughsensors = (q for q in quake_stream if len(q['data'])>100)
+    for idx, quake_record in enumerate(enoughsensors):
+        print(np.shape(quake_record['data']))
         print('processing quake num {}'.format(idx))
         write_earthquake_egs_tofile(quake_record)
     return
