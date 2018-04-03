@@ -204,21 +204,21 @@ def earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, 
     return label, trainingdata
 def tile_to_file(label, tile, seq):
     eventid = label[4]
-    name = './data/tiles_small/{}.txt'.format(eventid+'_'+str(seq))
+    name = './data/tiles/{}.txt'.format(eventid+'_'+str(seq))
     nonzeros = num_nonzeros(tile)
     tmp = list(label)
     tmp.append(nonzeros)
     label_nz = tuple(tmp)
     np.savetxt(name, tile)
     try:
-        with open('./data/tiles_small/metadata.json','r+') as f:
+        with open('./data/tiles/metadata.json','r+') as f:
             already = json.load(f)
     except FileNotFoundError as e:
         already = {}
     if eventid not in already:
         print('nonzeros: ', nonzeros)
         already[eventid] = label_nz
-    with open('./data/tiles_small/metadata.json', "w+") as f:
+    with open('./data/tiles/metadata.json', "w+") as f:
         json.dump(already, f)
 def write_earthquake_egs_tofile(oneevent):
     topleft = (53.5, 6.4)
