@@ -180,6 +180,7 @@ def event_to_tiles(topleft,sizex, sizey, numx,numy, slicelen, oneevent):
     no_outliers = filter_outside_box(topleft, sizex, sizey, no_shorts)
     if no_outliers:
         raw_timeseries = extract_raw_timeseries(no_outliers, limit = slicelen*20)
+        print(np.shape(raw_timeseries))
         stationdeets = extract_station_deets(no_outliers)
         #build the pipeline
         metriciser = functools.partial(slicecalcer, slicelen, zeromeanpeak)
@@ -230,6 +231,7 @@ def write_earthquake_egs_tofile(oneevent):
 
     label, tiles = earthquake_to_training_and_label(topleft,sizex, sizey, numx,numy, slicelen, oneevent)
     for idx, tile in enumerate(tiles):
+        print('event: {}, number {}'.format(oneevent['eventid'], idx))
         tile_to_file(label, tile, idx)
 
 @sqlconn
