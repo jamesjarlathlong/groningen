@@ -1,0 +1,143 @@
+ <head>
+ <meta charset="utf-8"/>
+ <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+<style>
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+.legend {
+    text-align: left;
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+}
+.legend .colorcircle {
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    margin-top: 0px;
+}
+.legend .circlepadding {
+    border-radius: 50%;
+    margin-top: 0px;
+    background: rgba(255, 255, 255, 0.8);
+}
+html {
+    -webkit-transition: background-color 1s;
+    transition: background-color 1s;
+}
+html, body {
+    /* For the loading indicator to be vertically centered ensure */
+    /* the html and body elements take up the full viewport */
+    min-height: 100%;
+}
+
+</style>
+ <!-- Make sure you put this AFTER Leaflet's CSS -->
+ <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+   integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+   crossorigin="">
+ </script>
+ <script src="http://d3js.org/d3.v4.min.js"></script>
+ <script src="https://d3js.org/colorbrewer.v1.min.js"></script>
+ <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+ <script src="./node_modules/leaflet-easyprint/dist/bundle.js
+"></script>
+</head>
+<html>
+<body class ="easyPrint">
+	<div id="mapid" style="height:170mm;width:290mm;">
+	</div>
+</html>
+<script>
+
+    function partial(fn /*, args...*/) {
+        var slice = Array.prototype.slice;
+        var args = slice.call(arguments, 1);
+        return function() {
+            return fn.apply(this, args.concat(slice.call(arguments, 0)));
+        }
+    }
+	var geojson;
+	var mymap = L.map('mapid',{preferCanvas:true}).setView([53.3744, 6.0], 2);
+	/*var layer = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+	subdomains: 'abcd',
+	maxZoom: 19
+	}).addTo(mymap)*/
+	var tiles =  L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+}).addTo(mymap)
+
+	function getColor(d) {
+    	return d > 500 ? '#800026' :
+            d > 400  ? '#BD0026' :
+            d > 300  ? '#E31A1C' :
+            d > 200  ? '#FC4E2A' :
+            d > 100   ? '#FD8D3C' :
+            '#d9d9d9';
+	}
+    function readTextFile(file, callback) {
+        var rawFile = new XMLHttpRequest();
+        rawFile.overrideMimeType("application/json");
+        rawFile.open("GET", file, true);
+            rawFile.onreadystatechange = function() {
+                if (rawFile.readyState === 4 && rawFile.status == "200") {
+            callback(rawFile.responseText);
+            }
+        }
+    rawFile.send(null);
+    }
+
+readTextFile("./induced.json", function(text){
+    var data = JSON.parse(text).quakes
+    data.forEach(function(el){
+        console.log(el)
+        L.circle(el, {radius: 5000*el[2]*el[2], fillOpacity: 0.95, color: 'transparent',fillColor:'#b2182b'}).addTo(mymap);
+    })
+    
+});
+var sizelegend = L.control({
+    position: 'bottomleft'
+});
+getRadius = function(size){
+    return size*2
+}
+//generate legend contents
+sizelegend.onAdd = function (map) {
+    //set up legend grades and labels
+    var div = L.DomUtil.create('div', 'info legend'),
+        grades = [0,1,2,3,4,5],
+        labels = ['<strong>Size</strong>'],
+        from, to;
+    //iterate through grades and create a scaled circle and label for each
+    for (var i = 0; i < grades.length; i++) {
+        from = grades[i];
+        to = grades[i + 1];
+        labels.push(
+            '<i class="circlepadding" style="width: '+Math.max(0,(19-1.8*getRadius(from)))+'px;"></i> <i style="background: #b2182b; width: '+getRadius(from)*2+'px; height: '+getRadius(from)*2+'px; border-radius: 50%; margin-top: '+Math.max(0,(9-getRadius(from)))+'px;"></i> ' + from+ (to ? '&ndash;' + to : '+'));
+    }
+    div.innerHTML = labels.join('<br>');
+    return div;
+};
+sizelegend.addTo(mymap);
+</script>
